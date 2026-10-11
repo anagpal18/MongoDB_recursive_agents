@@ -6,7 +6,7 @@ Scope: MongoDB Atlas + Voyage AI, from `02_DATA_aditya.md`. Shresth's repo alrea
 | Question | Answer |
 |---|---|
 | Cluster | `cluster0.jvfgld.mongodb.net` = hackathon Atlas Sandbox (MongoDB 8.0.34) |
-| Database | `crashtest` while testing → switch to `crashtest_dev` for real data. Read from `MONGODB_DB` in `.env` so switching is one line. |
+| Database | `crashtest` while testing → switch to `crashtest_dev` for real data. Read from `CRASHTEST_DB` in `.env` (same name as Shresth's config.py) so switching is one line. |
 | Embeddings | Our own Voyage API key, called directly from Python. Vectors stored in `attacks.embedding`. |
 | Writer of live data | Shresth's repo (path/URL still needed) |
 
@@ -24,7 +24,7 @@ Scope: MongoDB Atlas + Voyage AI, from `02_DATA_aditya.md`. Shresth's repo alrea
 ## Steps
 
 ### 0. Setup (≈15 min)
-- `.env`: add `MONGODB_DB=crashtest`, `VOYAGE_API_KEY=...`, `VOYAGE_MODEL=voyage-4`.
+- `.env`: add `CRASHTEST_DB=crashtest`, `VOYAGE_API_KEY=...`, `VOYAGE_MODEL=voyage-4`.
 - `python -m pip install voyageai` into conda base.
 - `git init` already done; add `.gitignore` (done: `.env`). Repo must be public later.
 
@@ -57,7 +57,7 @@ Exactly the API in the doc:
 - `watch_harness_versions(callback)` via change stream on `harness_versions` (insert where `accepted: true`). Fallback: poll by `created_ts`.
 
 ### 6. Switch + freeze
-- Flip `MONGODB_DB=crashtest_dev`, backfill embeddings there, create the vector index there.
+- Flip `CRASHTEST_DB=crashtest_dev`, backfill embeddings there, create the vector index there.
 - Feature freeze at +4:30 with the rest of the team.
 
 ## Definition of done (from doc)
