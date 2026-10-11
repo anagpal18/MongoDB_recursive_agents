@@ -121,3 +121,41 @@ def get_state(agent_id: str = AGENT_ID) -> dict:
         "round": (score_event or {}).get("round", 0),
         "recent_events": list(db().events.find({}, {"_id": 0}).sort("ts", DESCENDING).limit(50))[::-1],
     }
+
+
+# ---- live pickup of new harness versions ----------------------------------------------------------------------
+def watch_harness_versions(callback, accepted_only: bool = True, stop=None, poll_seconds: float = 2.0) -> None:
+    """Call callback(hv) whenever a harness version is inserted or becomes accepted. Blocks; run it in a thread.
+
+    Uses a MongoDB change stream (Atlas is a replica set). Falls back to polling `created_ts` if change streams
+    are unavailable. `stop` is an optional threading.Event to end the loop.
+    """
+    import threading
+    import time
+
+    from pymongo.errors import OperationFailure
+
+    stop = stop or threading.Event()
+    match = {"operationType": {"$in": ["insert", "update", "replace"]}}
+    if accepted_only:
+        match["fullDocument.accepted"] = True
+    try:
+        with db().harness_versions.watch([{"$match": match}], full_document="updateLookup",
+                                         max_await_time_ms=1000) as stream:
+            while not stop.is_set():
+                change = stream.try_next()
+                if change is not None:
+                    callback(change["fullDocument"])
+        return
+    except OperationFailure:
+        pass  # change streams not allowed on this deployment: poll instead
+
+    seen_ts = now()
+    while not stop.is_set():
+        query = {"created_ts": {"$gt": seen_ts}}
+        if accepted_only:
+            query["accepted"] = True
+        for hv in db().harness_versions.find(query).sort("created_ts", 1):
+            seen_ts = hv["created_ts"]
+            callback(hv)
+        stop.wait(poll_seconds)
