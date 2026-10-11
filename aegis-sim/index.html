@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AEGIS-1 Orbital Sim</title>
+<link rel="stylesheet" href="https://unpkg.com/98.css@0.1.21/dist/98.css">
+<style>
+:root{
+  --void:#05060f; --ink:#07080f; --ink-2:#0d1020;
+  --ally:#36e2d0; --ally-dim:#1a8f9e;
+  --hostile:#ff4b3e; --hostile-dim:#9e1b2c;
+  --supply:#ffd36b; --earth:#6fd2ff;
+  --ok:#5ff2b0; --warn:#ffcf4a; --crit:#ff5a4e; --info:#8fb3ff; --muted:#7c86a3;
+  --gap:8px;
+  --tb-ally:linear-gradient(90deg,#08283a 0%,#0f5f6e 55%,#2fb8a6 100%);
+  --tb-log:linear-gradient(90deg,#140b2e 0%,#4a1f7a 55%,#b04fc4 100%);
+  --tb-console:linear-gradient(90deg,#1a1430 0%,#6b2d3a 50%,#e0812e 100%);
+  --tb-hostile:linear-gradient(90deg,#2a0610 0%,#8a1424 55%,#ff4b3e 100%);
+  --tb-comms:linear-gradient(90deg,#071f19 0%,#16614a 55%,#7fd36b 100%);
+}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--void);}
+body{-webkit-font-smoothing:none;user-select:none;}
+#scene{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair;}
+#scene.hovering{cursor:pointer;}
+
+#alert-vignette{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .6s steps(6);
+  box-shadow:inset 0 0 0 3px rgba(255,75,62,.55), inset 0 0 120px rgba(255,40,40,.28);}
+body.red-alert #alert-vignette{opacity:1;animation:alertPulse 1.6s steps(4) infinite;}
+@keyframes alertPulse{50%{box-shadow:inset 0 0 0 3px rgba(255,75,62,.9), inset 0 0 180px rgba(255,40,40,.4);}}
+#crt{position:fixed;inset:0;pointer-events:none;opacity:.10;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.9) 0 1px,transparent 1px 3px);}
+
+/* ---- 98 window theming ---- */
+.window{position:fixed;z-index:10;}
+.window .title-bar{cursor:grab;}
+.window.dragging{z-index:20;}
+.window.dragging .title-bar{cursor:grabbing;}
+.t-ally .title-bar{background:var(--tb-ally);}
+.t-log .title-bar{background:var(--tb-log);}
+.t-console .title-bar{background:var(--tb-console);}
+.t-hostile .title-bar{background:var(--tb-hostile);}
+.t-earth .title-bar{background:var(--tb-earth);}
+.t-comms .title-bar{background:var(--tb-comms);}
+.title-bar-text{display:flex;align-items:center;gap:4px;}
+.window.minimized .window-body{display:none;}
+.window-body{margin:6px;}
+
+.pxi{display:inline-block;vertical-align:-2px;flex:none;}
+button .pxi{margin-right:4px;}
+button.btn-ico{display:inline-flex;align-items:center;justify-content:center;gap:2px;}
+
+/* top bar */
+#topbar{left:var(--gap);right:var(--gap);top:var(--gap);}
+#topbar .window-body{margin:3px 4px;display:flex;align-items:center;gap:6px;}
+#topbar .status-bar{flex:1;margin:0;}
+#topbar .status-bar-field{display:flex;align-items:center;gap:5px;white-space:nowrap;padding:2px 6px;}
+.meter{display:inline-block;width:64px;height:8px;background:#0a0b16;box-shadow:inset 1px 1px #808080, inset -1px -1px #fff;position:relative;}
+.meter > i{position:absolute;left:1px;top:1px;bottom:1px;background:var(--ok);transition:width .25s steps(5);}
+.meter.shield > i{background:var(--ally);} .meter.power > i{background:var(--supply);}
+.chip{padding:0 4px;color:#fff;background:#1d2a3a;font-weight:bold;letter-spacing:1px;}
+.chip.calm{background:#16614a;} .chip.alert{background:#a3671a;} .chip.red{background:#b3122e;animation:blink 1s steps(2) infinite;}
+.chip.demo{background:#5b2a86;}
+@keyframes blink{50%{background:#ff4b3e;}}
+
+/* log */
+#win-log{left:var(--gap);top:56px;bottom:var(--gap);width:300px;display:flex;flex-direction:column;}
+#win-log .window-body{flex:1;display:flex;flex-direction:column;min-height:0;}
+#win-log menu[role=tablist]{margin:0;}
+#log-wrap{flex:1;min-height:0;display:flex;}
+#log{flex:1;overflow-y:auto;background:var(--ink);padding:4px 2px;font-size:11px;line-height:13px;}
+.le{display:grid;grid-template-columns:14px 50px 1fr;gap:4px;padding:2px 4px;color:#cfd8ea;animation:leIn .45s steps(5);}
+.le .ts{color:var(--muted);}
+.le .msg b{font-weight:bold;}
+.le.l-info .pxi{color:var(--info);} .le.l-ok .pxi,.le.l-ok b{color:var(--ok);}
+.le.l-warn .pxi,.le.l-warn b{color:var(--warn);} .le.l-crit .pxi,.le.l-crit b{color:var(--crit);}
+.le.l-crit{background:rgba(255,75,62,.08);}
+.le.l-supply .pxi,.le.l-supply b{color:var(--supply);} .le.l-hostile .pxi,.le.l-hostile b{color:#ff8a5c;}
+@keyframes leIn{0%{background:#ffffff;color:#000;transform:translateX(-6px);}40%{background:rgba(54,226,208,.35);}100%{transform:none;}}
+.log-foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+
+/* inspector */
+#win-inspector{right:var(--gap);top:56px;width:290px;max-height:calc(100vh - 300px);display:flex;flex-direction:column;}
+#win-inspector .window-body{overflow-y:auto;min-height:0;}
+.insp-head{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+.insp-head canvas{background:var(--ink);image-rendering:pixelated;box-shadow:inset 1px 1px #808080, inset -1px -1px #fff;padding:2px;flex:none;}
+.insp-title{font-weight:bold;font-size:11px;}
+.insp-sub{color:#444;}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin:4px 0;}
+.kv dt{color:#333;} .kv dd{margin:0;text-align:right;font-weight:bold;}
+.bar{height:10px;background:var(--ink);box-shadow:inset 1px 1px #808080, inset -1px -1px #fff;position:relative;margin:2px 0 6px;}
+.bar > i{position:absolute;left:2px;top:2px;bottom:2px;transition:width .2s steps(4);}
+.bar.hp > i{background:linear-gradient(90deg,#1f9e74,#5ff2b0);} .bar.sh > i{background:linear-gradient(90deg,#1a6f9e,#6fe8ff);}
+.bar.bad > i{background:linear-gradient(90deg,#9e1b2c,#ff5a4e);}
+.list{margin:2px 0 6px;padding:0;list-style:none;}
+.list li{display:flex;gap:4px;align-items:flex-start;margin:2px 0;}
+.list.good .pxi{color:#0b7a4b;} .list.bad .pxi{color:#b3122e;}
+.pips{letter-spacing:1px;color:#b3122e;}
+fieldset{margin:0 0 6px;padding:4px 6px 6px;}
+.btn-row{display:flex;flex-wrap:wrap;gap:4px;}
+.insp-note{color:#444;font-style:italic;margin:4px 0;}
+.partgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:3px;margin:4px 0 6px;}
+.partgrid button{min-width:0;padding:2px 3px;font-size:10px;display:flex;flex-direction:column;align-items:center;gap:1px;}
+.partgrid button .pbar{width:100%;height:4px;background:#0a0b16;}
+.partgrid button .pbar i{display:block;height:100%;background:var(--ok);}
+.partgrid button.dead{color:#888;} .partgrid button.dead .pbar i{background:var(--crit);}
+.partgrid button.sel{outline:2px dotted #000;outline-offset:-3px;}
+
+/* console */
+#win-console{left:calc(300px + var(--gap)*2);right:calc(290px + var(--gap)*2);bottom:var(--gap);}
+#win-console .window-body{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:6px;}
+#win-console fieldset{margin:0;}
+#win-console button{min-width:0;padding:0 6px;}
+.kbd{color:#666;margin-left:3px;}
+.field-row-tight{display:flex;gap:4px;align-items:center;margin-top:4px;flex-wrap:wrap;}
+select{max-width:150px;}
+
+/* comms */
+#win-comms{right:var(--gap);bottom:var(--gap);width:290px;}
+#comms-body{display:flex;gap:6px;}
+#portrait{width:64px;height:64px;image-rendering:pixelated;background:#061612;box-shadow:inset 1px 1px #808080, inset -1px -1px #fff;flex:none;}
+#comms-text{flex:1;background:var(--ink);color:#bff7d8;padding:4px 6px;min-height:56px;font-size:11px;line-height:13px;}
+#comms-text .who{color:#7fd36b;font-weight:bold;display:block;}
+.caret{display:inline-block;width:6px;height:10px;background:#bff7d8;vertical-align:-1px;animation:caret 1s steps(2) infinite;}
+@keyframes caret{50%{opacity:0;}}
+
+/* popup + tooltip + help */
+#alert-popup{left:50%;top:22%;transform:translateX(-50%);width:300px;z-index:30;display:none;}
+#alert-popup.show{display:block;animation:popIn .35s steps(5);}
+@keyframes popIn{0%{transform:translateX(-50%) scale(.2);opacity:0;}100%{transform:translateX(-50%) scale(1);opacity:1;}}
+#alert-popup .window-body{display:flex;gap:10px;align-items:center;}
+#alert-popup .big{color:var(--hostile-dim);}
+#tooltip{position:fixed;z-index:40;pointer-events:none;background:#ffffe1;border:1px solid #000;padding:2px 4px;font-size:11px;display:none;white-space:nowrap;}
+#help{left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);z-index:35;display:none;}
+#help.show{display:block;}
+#help pre{max-height:46vh;overflow:auto;font-size:11px;margin:4px 0;}
+.boot #win-log,.boot #win-inspector,.boot #win-console,.boot #win-comms,.boot #topbar{opacity:0;}
+.booted .window{animation:winIn .5s steps(6) both;}
+.booted #win-log{animation-delay:.1s}.booted #win-inspector{animation-delay:.2s}.booted #win-console{animation-delay:.3s}.booted #win-comms{animation-delay:.4s}
+@keyframes winIn{0%{opacity:0;clip-path:inset(0 0 100% 0);}100%{opacity:1;clip-path:inset(0 0 0 0);}}
+
+@media (max-width:1180px){
+  #win-log{width:240px;} #win-console{left:calc(240px + var(--gap)*2);right:var(--gap);bottom:var(--gap);}
+  #win-comms{display:none;} #win-inspector{max-height:calc(100vh - 260px);}
+  #win-console .window-body{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:760px){
+  #win-log{top:auto;height:150px;width:auto;right:var(--gap);bottom:178px;}
+  #win-inspector{display:none;} #win-console{left:var(--gap);}
+  #topbar .hide-sm{display:none;}
+}
+</style>
+</head>
+<body class="boot">
+<canvas id="scene" aria-label="Orbital battle scene"></canvas>
+<div id="alert-vignette"></div>
+<div id="crt"></div>
+
+<!-- TOP STATUS BAR -->
+<div id="topbar" class="window t-ally">
+  <div class="window-body">
+    <div class="status-bar">
+      <p class="status-bar-field"><span data-ico="ship"></span><b>AEGIS-1</b><span class="hide-sm">Orbital Defense Sim</span></p>
+      <p class="status-bar-field"><span data-ico="heart"></span>Hull <span class="meter"><i id="m-hull" style="width:100%"></i></span><span id="v-hull">100%</span></p>
+      <p class="status-bar-field"><span data-ico="shield"></span>Shield <span class="meter shield"><i id="m-shield" style="width:100%"></i></span><span id="v-shield">100%</span></p>
+      <p class="status-bar-field hide-sm"><span data-ico="zap"></span>Power <span class="meter power"><i id="m-power" style="width:100%"></i></span><span id="v-power">100%</span></p>
+      <p class="status-bar-field"><span data-ico="bullseye-arrow"></span>Hostiles <b id="v-hostiles">0</b></p>
+      <p class="status-bar-field hide-sm"><span data-ico="truck"></span>Pods <b id="v-pods">0</b></p>
+      <p class="status-bar-field"><span id="v-cond" class="chip calm">CONDITION GREEN</span><span id="v-demo" class="chip demo" style="display:none">DEMO</span></p>
+      <p class="status-bar-field"><span data-ico="clock"></span><span id="v-clock">T+00:00</span></p>
+    </div>
+    <button id="b-pause" class="btn-ico" title="Pause (P)"><span data-ico="pause"></span></button>
+    <button id="b-mute" class="btn-ico" title="Sound (M)"><span data-ico="volume-3"></span></button>
+    <button id="b-help" class="btn-ico" title="Trigger API"><span data-ico="info-box"></span></button>
+  </div>
+</div>
+
+<!-- LIVE LOG -->
+<section id="win-log" class="window t-log">
+  <div class="title-bar">
+    <div class="title-bar-text"><span data-ico="script-text"></span>Live Event Log</div>
+    <div class="title-bar-controls"><button aria-label="Minimize" data-min></button></div>
+  </div>
+  <div class="window-body">
+    <menu role="tablist" id="log-tabs">
+      <li role="tab" aria-selected="true" data-f="all"><a href="#">All</a></li>
+      <li role="tab" data-f="combat"><a href="#">Combat</a></li>
+      <li role="tab" data-f="supply"><a href="#">Supply</a></li>
+      <li role="tab" data-f="system"><a href="#">System</a></li>
+    </menu>
+    <div id="log-wrap" class="window" style="position:static"><div id="log" class="sunken-panel"></div></div>
+    <div class="log-foot"><span id="log-count">0 events</span><button id="b-clearlog" class="btn-ico"><span data-ico="trash"></span>Clear</button></div>
+  </div>
+</section>
+
+<!-- INSPECTOR -->
+<section id="win-inspector" class="window t-ally">
+  <div class="title-bar">
+    <div class="title-bar-text"><span data-ico="eye"></span><span id="insp-title">Inspector</span></div>
+    <div class="title-bar-controls"><button aria-label="Minimize" data-min></button></div>
+  </div>
+  <div class="window-body" id="insp"></div>
+</section>
+
+<!-- TRIGGER CONSOLE -->
+<section id="win-console" class="window t-console">
+  <div class="title-bar">
+    <div class="title-bar-text"><span data-ico="command"></span>Trigger Console</div>
+    <div class="title-bar-controls"><button aria-label="Minimize" data-min></button></div>
+  </div>
+  <div class="window-body">
+    <fieldset>
+      <legend>Hostiles</legend>
+      <div class="btn-row">
+        <button data-t="spawn" data-kind="wasp">Wasp<span class="kbd">1</span></button>
+        <button data-t="spawn" data-kind="hammerhead">Hammerhead<span class="kbd">2</span></button>
+        <button data-t="spawn" data-kind="leech">Leech<span class="kbd">3</span></button>
+        <button data-t="spawn" data-kind="warden">Warden<span class="kbd">4</span></button>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button data-t="wave" class="btn-ico"><span data-ico="users"></span>Wave<span class="kbd">W</span></button>
+        <button data-t="attack" class="btn-ico"><span data-ico="bullseye-arrow"></span>Volley<span class="kbd">A</span></button>
+        <button data-t="retreat" class="btn-ico"><span data-ico="flag"></span>Retreat<span class="kbd">X</span></button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Earth Supply</legend>
+      <div class="btn-row">
+        <button data-t="repair" class="btn-ico"><span data-ico="reload"></span>Repair<span class="kbd">R</span></button>
+        <button data-t="upgrade" class="btn-ico"><span data-ico="upload"></span>Upgrade<span class="kbd">U</span></button>
+      </div>
+      <div class="field-row-tight">
+        <select id="sel-upgrade" aria-label="Upgrade module"></select>
+      </div>
+      <div class="field-row-tight">
+        <input type="checkbox" id="cb-autorepair"><label for="cb-autorepair">Auto-repair</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Simulation</legend>
+      <div class="field-row-tight" style="margin-top:0">
+        <input type="checkbox" id="cb-autodef" checked><label for="cb-autodef">Auto-defense</label>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button id="b-demo" class="btn-ico"><span data-ico="play"></span>Play Demo<span class="kbd">D</span></button>
+        <button data-t="reset" class="btn-ico"><span data-ico="sync"></span>Reset</button>
+      </div>
+    </fieldset>
+  </div>
+</section>
+
+<!-- COMMS -->
+<section id="win-comms" class="window t-comms">
+  <div class="title-bar">
+    <div class="title-bar-text"><span data-ico="radio-signal"></span>Comms // MIRA-7</div>
+    <div class="title-bar-controls"><button aria-label="Minimize" data-min></button></div>
+  </div>
+  <div class="window-body" id="comms-body">
+    <canvas id="portrait" width="16" height="16"></canvas>
+    <div id="comms-text" class="sunken-panel"><span class="who">MIRA-7 // Ship AI</span><span id="comms-line"></span><span class="caret"></span></div>
+  </div>
+</section>
+
+<!-- ALERT POPUP -->
+<div id="alert-popup" class="window t-hostile" role="alertdialog">
+  <div class="title-bar"><div class="title-bar-text"><span data-ico="warning-box"></span>Hostile Contact</div></div>
+  <div class="window-body"><span class="big" data-ico="alert" data-size="28"></span><div><b id="alert-title">RED ALERT</b><br><span id="alert-msg">Signatures inbound.</span></div></div>
+</div>
+
+<!-- HELP -->
+<div id="help" class="window t-ally">
+  <div class="title-bar"><div class="title-bar-text"><span data-ico="info-box"></span>Trigger API</div>
+    <div class="title-bar-controls"><button aria-label="Close" id="b-help-close"></button></div></div>
+  <div class="window-body">
+    <p>The scene only reacts to triggers. Send triggers from the buttons, the keyboard, or your backend.</p>
+<pre>// 1. Same page
+AEGIS.trigger('spawn',   {kind:'wasp', count:2})
+AEGIS.trigger('attack')                    // all hostiles fire a volley
+AEGIS.trigger('damage',  {part:'L1', amount:50})
+AEGIS.trigger('repair')                    // or {part:'A3'}
+AEGIS.trigger('upgrade', {id:'flank'})
+AEGIS.trigger('retreat') | ('reset') | ('demo')
+AEGIS.trigger('log',     {text:'Agent rule v12 deployed', level:'ok'})
+AEGIS.trigger('say',     {text:'Shields holding.'})
+AEGIS.on('*', e => console.log(e))         // listen to sim events
+
+// 2. Another tab or iframe
+new BroadcastChannel('aegis').postMessage({type:'spawn', payload:{kind:'leech'}})
+window.postMessage({aegis:true, type:'repair'}, '*')
+
+// 3. Backend over WebSocket: open index.html?ws=ws://localhost:8787
+//    then send JSON frames: {"type":"spawn","payload":{"kind":"warden"}}</pre>
+    <p>Keys: 1-4 spawn, W wave, A volley, X retreat, R repair, U upgrade, D demo, P pause, M mute.</p>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+<script src="icons.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
