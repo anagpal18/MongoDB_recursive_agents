@@ -1,0 +1,21 @@
+legal_aid_intake:
+  cwd: orchestrator
+  command: ../.venv/bin/python replay_server.py
+
+  input:
+    harness_version: string
+    attack_id: string
+    memory: string
+    tool_overrides: string
+
+  prefillFromTrace:
+    harness_version: properties.harness_version
+    attack_id: properties.attack_id
+    memory: properties.memory
+    tool_overrides: properties.tool_overrides
+
+  models:
+    - claude-sonnet-5
+    - claude-haiku-4-5
+    - claude-sonnet-5-5
+    - claude-opus-5-5
