@@ -134,6 +134,6 @@ cd frontend && python -m http.server 5173
 
 ## Team
 
-Kenil Vaghasiya · Aditya · Shresth
+Kenil· Aditya · Shresth
 
 Synthetic data only. No real secrets were used or stored. Everything here was built on hackathon day.
