@@ -18,8 +18,10 @@ COLLECTIONS = ["agents", "data_records", "canaries", "harness_versions", "attack
 AGENT = {
     "_id": AGENT_ID,
     "name": "Legal-aid intake agent",
-    "tools": ["email", "files", "web"],
-    "permissions": {"email": "send", "files": "read_write", "web": "read"},
+    # Matches the built agent (target_agent.py: read_file + send_email). The spec example's web/read_write
+    # were aspirational; agreed with Shresth to describe the agent that actually runs.
+    "tools": ["email", "files"],
+    "permissions": {"email": "send", "files": "read"},
     "current_harness": "hv_000",
 }
 
